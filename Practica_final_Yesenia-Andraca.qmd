@@ -1,0 +1,158 @@
+---
+title: "practica_final"
+format: html
+editor: visual
+---
+
+Vamos a utilizar el dataset de semillas que se encuentra aquí: https://archive.ics.uci.edu/ml/datasets/seeds#
+
+Primero vamos a descargarnos el dataset con el siguiente comando:
+
+```{r}
+library(tidyverse)
+df_seeds <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt', col.names =c('area','perimetro','compacto','longitud','anchura','coeficient.asimetria','longitud.ranura','tipo'))
+```
+
+#### PREGUNTA 1
+
+¿Cuantas filas y cuantas columnas tiene el dataframe df_seeds?
+
+**Respuesta**:
+
+```{r}
+d <- dim(df_seeds)
+paste("Hay ", d[1], "filas y ", d[2], "columnas")
+```
+
+#### PREGUNTA 2
+
+Vamos a convertir en factor la columna tipo. Vamos a reemplazar los números por su correspondiente etiqueta (label). La correspondencia entre el código y el tipo es:
+
+-   1 - Kama
+-   2 - Rosa
+-   3 - Canadian
+
+Convierte en factor la columna tipo, respetando las etiquetas:
+
+**Respuesta**:
+
+```{r}
+tipo_factor <- factor(df_seeds$tipo, levels = c(1,2,3), labels = c("Kama", "Rosa", "Canadian"))
+df_seeds$tipo <- tipo_factor
+df_seeds
+```
+
+#### PREGUNTA 3
+
+¿Cual es la media del area de cada uno de los tipos?
+
+**Respuesta**
+
+```{r}
+for (tipo_seed in levels(tipo_factor)){
+  subset_tipo <- subset(df_seeds, subset <- df_seeds$tipo == tipo_seed)
+  ans <- paste(tipo_seed, round(mean(subset_tipo$area), 2), sep = ": ")
+  print(ans)
+}
+```
+
+#### PREGUNTA 4
+
+¿Como se llama el siguiente tipo de gráfico?. ¿Qué representa la línea del centro de la caja?
+
+```{r}
+ggplot(df_seeds, aes(x=tipo, y=area)) + geom_boxplot()
+```
+
+**Respuesta**: El grafico es un boxplot y las lineas representan las medianas de los grupos representados por las cajas
+
+#### PREGUNTA 5
+
+¿Como pintarías un diagrama de puntos (o scatterplot) con ggplot con las siguientes características? - En el eje X la variable compacto - En el eje Y la variable area - Cada tipo de semilla debería tener un color diferente
+
+**Respuesta**:
+
+```{r}
+ggplot(df_seeds, aes(x=compacto, y=area, col=tipo, shape=tipo)) + geom_point()
+```
+
+#### PREGUNTA 6
+
+¿Qué hace la siguiente línea?:
+
+```{r}
+df_seeds |> mutate(is_kama = tipo=='Kama') -> df_seeds
+```
+
+**Respuesta**: Pone una columna a df_seed, llamandola is_kama y sera TRUE si la flor es del tipo Kama o FALSE en caso que no.
+
+#### PREGUNTA 7
+
+Vamos a dividir el conjunto de datos en test y training porque vamos a entrenar un modelo que me permita diferenciar si una semilla es de tipo Kama o no. ¿Por qué es aconsejable dividir el dataset en los grupos de train y test?
+
+```{r}
+set.seed(123) # Este set.seed hace que a todos nos generen los mismos número aleatorios
+idx <- sample(1:nrow(df_seeds), 0.7*nrow(df_seeds))
+df_seeds_train <- df_seeds[idx,]
+df_seeds_test <- df_seeds[-idx,]
+```
+
+**Respuesta**: Ya que dividiendo el dataset en grupos train y test se puede estimar si el modelo funcionara con los datos nuevos, trains para entrenar nuestro modelo y test para evaluarlo.
+
+#### PREGUNTA 8
+
+Vamos a crear un modelo para realizar una clasificación binaria, donde le pasaremos como entrada las columnas: area, perimetro, compacto, longitud, coeficient.asimetria y longitud.ranura
+
+¿Qué tipo de algoritmo o modelo debería usar?
+
+**Respuesta**: GLM(Modelo linear generalizado)
+
+#### PREGUNTA 9
+
+Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con las siguientes columnas: area, perimetro, compacto, longitud, coeficient.asimetria, longitud.ranura
+
+**Respuesta**:
+
+```{r}
+#library(sjPlot)
+
+
+y_train = as.numeric(df_seeds_train$is_kama)
+
+y_test = as.numeric(df_seeds_test$is_kama)
+
+modelo = glm(formula = y_train ~ area + perimetro +compacto + longitud + coeficient.asimetria + longitud.ranura, data = df_seeds_train, family=binomial)
+
+
+
+#tab_model(modelo)
+```
+
+#### PREGUNTA 10
+
+Si usamos un umbral de 0 en la salida del modelo (lo que equivale a probabilidad de 0.5 cuando usamos el predict con type='response') ¿Cuales son los valores de precisión y exhausitividad?
+
+**Respuesta**.
+
+```{r}
+pred_test = predict(modelo, df_seeds_test, type="response")
+
+
+
+M = table(real=df_seeds_test$is_kama, pred=pred_test>0.5)
+
+paste("Presición:", M[2,2]/(M[1,2]+M[2,2]))
+paste("Exhaustividad:", M[2,2]/(M[2,1]+M[2,2]))
+```
+
+#### PREGUNTA 11
+
+¿Qué están haciendo las siguientes líneas?
+
+```{r}
+set.seed(123)
+cl<-df_seeds |> select(area,perimetro,compacto,longitud,anchura,coeficient.asimetria,longitud.ranura) |> kmeans(3)
+table(real=df_seeds$tipo,cluster=cl$cluster)
+```
+
+**Respuesta**: Estamos usando k-means para dividir los datos en 3 clusters, usamos set_seed para que el proceso siempre empece de la misma manera. Despues armamos una tabla donde los clusters obtenidos de esta manera son las columnas y los tipos reales de flores son las columnas. Así vemos que el k-means pusó 60 de las 70 flores de tipo Kama en el grupo 2, 60 de las 70 rosas en el grupo 1 y 68 de las 70 Canadians en el grupo 3.
